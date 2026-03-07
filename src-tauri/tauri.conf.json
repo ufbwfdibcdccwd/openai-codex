@@ -1,0 +1,44 @@
+{
+  "productName": "Codex Windows",
+  "version": "1.0.0",
+  "identifier": "com.codex.windows",
+  "build": {
+    "frontendDist": "../frontend",
+    "beforeBuildCommand": "",
+    "beforeDevCommand": ""
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Codex",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 600,
+        "minHeight": 400,
+        "resizable": true,
+        "decorations": false,
+        "center": true,
+        "visible": true,
+        "focus": true
+      }
+    ],
+    "withGlobalTauri": true,
+    "security": {
+      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' https: data: blob:; child-src 'self' blob:; frame-src 'self' blob:; worker-src 'self' blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; media-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost ws://127.0.0.1:5557 https://ab.chatgpt.com https://cdn.openai.com",
+      "dangerousDisableAssetCspModification": true
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["msi", "nsis"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "vendor/**/*": "vendor/"
+    }
+  }
+}
