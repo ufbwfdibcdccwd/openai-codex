@@ -464,7 +464,7 @@ pub fn detect_open_targets() -> Value {
     targets.push(json!({
         "id": "terminal",
         "label": "Terminal",
-        "icon": "apps/terminal.png",
+        "icon": "apps/microsoft-terminal.png",
         "available": true,
     }));
     available_targets.push("terminal");
@@ -495,7 +495,7 @@ pub fn detect_open_targets() -> Value {
         targets.push(json!({
             "id": "gitBash",
             "label": "Git Bash",
-            "icon": "apps/terminal.png",
+            "icon": "apps/git-bash.png",
             "available": true,
         }));
         available_targets.push("gitBash");
@@ -512,7 +512,7 @@ pub fn detect_open_targets() -> Value {
         targets.push(json!({
             "id": "wsl",
             "label": "WSL",
-            "icon": "apps/terminal.png",
+            "icon": "apps/wsl.png",
             "available": true,
         }));
         available_targets.push("wsl");
