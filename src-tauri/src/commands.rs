@@ -596,101 +596,185 @@ pub fn gh_cli_status() -> Value {
     })
 }
 
+// --- WSL Detection ---
+
+#[tauri::command]
+pub fn check_wsl() -> Value {
+    let wsl_exists = hidden_command("where.exe")
+        .arg("wsl")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !wsl_exists {
+        return json!({ "hasWsl": false });
+    }
+
+    // Check if there's at least one installed distro
+    let has_distro = hidden_command("wsl")
+        .args(["--list", "--quiet"])
+        .output()
+        .map(|o| {
+            o.status.success() && !String::from_utf8_lossy(&o.stdout).trim().is_empty()
+        })
+        .unwrap_or(false);
+
+    json!({ "hasWsl": has_distro })
+}
+
 // --- Open in external target ---
 // Note: GUI apps (VS Code, Cursor, Windsurf) must NOT use hidden_command()
 // because CREATE_NO_WINDOW suppresses the GUI window from appearing.
 // Only use hidden_command() for console-only tools (git, where.exe, etc.).
 
-fn gui_command(program: &str) -> Command {
-    // GUI apps must spawn normally WITHOUT CREATE_NO_WINDOW
-    Command::new(program)
+/// Finds the absolute path of an executable using `where.exe`.
+fn find_executable(name: &str) -> Option<String> {
+    hidden_command("where.exe")
+        .arg(name)
+        .output()
+        .ok()
+        .and_then(|o| {
+            if o.status.success() {
+                let text = String::from_utf8_lossy(&o.stdout);
+                text.lines().next().map(|l| l.trim().to_string())
+            } else {
+                None
+            }
+        })
+}
+
+/// Finds VS Code's CLI path. Checks common install locations if `where` fails.
+fn find_vscode() -> Option<String> {
+    // Try where.exe first (works when in user PATH)
+    if let Some(p) = find_executable("code") {
+        return Some(p);
+    }
+    // Common install paths
+    let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
+    let candidates = [
+        format!("{}\\Programs\\Microsoft VS Code\\bin\\code.cmd", local),
+        format!("{}\\Programs\\Microsoft VS Code\\Code.exe", local),
+        "C:\\Program Files\\Microsoft VS Code\\bin\\code.cmd".to_string(),
+        "C:\\Program Files\\Microsoft VS Code\\Code.exe".to_string(),
+        "C:\\Program Files (x86)\\Microsoft VS Code\\bin\\code.cmd".to_string(),
+    ];
+    candidates.into_iter().find(|p| Path::new(p).exists())
+}
+
+/// Finds git-bash.exe (the GUI launcher, not bash.exe).
+fn find_git_bash() -> Option<String> {
+    let candidates = [
+        "C:\\Program Files\\Git\\git-bash.exe",
+        "C:\\Program Files (x86)\\Git\\git-bash.exe",
+    ];
+    for p in &candidates {
+        if Path::new(p).exists() {
+            return Some(p.to_string());
+        }
+    }
+    // Try from PATH
+    find_executable("git-bash")
 }
 
 #[tauri::command]
 pub fn open_in_target(target: String, path: String) -> Result<(), String> {
+    let dir = if Path::new(&path).is_dir() {
+        path.clone()
+    } else {
+        Path::new(&path)
+            .parent()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or(path.clone())
+    };
+
     match target.as_str() {
         "vscode" => {
-            // VS Code is a GUI app — do NOT use hidden_command
-            gui_command("code")
-                .arg(&path)
-                .spawn()
-                .map_err(|e| format!("Failed to open VS Code: {}", e))?;
+            // Use cmd /c to inherit user PATH so "code" resolves correctly
+            // even when the Tauri app is launched as Admin or from Start Menu.
+            if let Some(code_path) = find_vscode() {
+                Command::new(&code_path)
+                    .arg(&path)
+                    .spawn()
+                    .map_err(|e| format!("Failed to open VS Code: {}", e))?;
+            } else {
+                // Last resort: cmd /c code (relies on PATH)
+                Command::new("cmd.exe")
+                    .args(["/c", "code", &path])
+                    .spawn()
+                    .map_err(|e| format!("Failed to open VS Code: {}", e))?;
+            }
         }
         "fileManager" => {
-            gui_command("explorer.exe")
+            Command::new("explorer.exe")
                 .arg(&path)
                 .spawn()
                 .map_err(|e| format!("Failed to open File Explorer: {}", e))?;
         }
         "terminal" => {
             // Try Windows Terminal first, fallback to cmd.exe
-            let wt_available = hidden_command("where.exe")
-                .arg("wt")
-                .output()
-                .map(|o| o.status.success())
-                .unwrap_or(false);
-
-            if wt_available {
-                gui_command("wt")
-                    .args(["-d", &path])
+            let wt = find_executable("wt");
+            if let Some(wt_path) = wt {
+                Command::new(&wt_path)
+                    .args(["-d", &dir])
                     .spawn()
                     .map_err(|e| format!("Failed to open Windows Terminal: {}", e))?;
             } else {
-                gui_command("cmd.exe")
-                    .args(["/K", &format!("cd /d \"{}\"", path)])
+                Command::new("cmd.exe")
+                    .args(["/K", &format!("cd /d \"{}\"", dir)])
                     .spawn()
                     .map_err(|e| format!("Failed to open cmd.exe: {}", e))?;
             }
         }
         "gitBash" => {
-            // Try to find Git Bash
-            let git_bash_paths = [
-                "C:\\Program Files\\Git\\bin\\bash.exe",
-                "C:\\Program Files (x86)\\Git\\bin\\bash.exe",
-            ];
-            let bash_path = git_bash_paths.iter()
-                .find(|p| Path::new(p).exists())
-                .map(|p| p.to_string());
-
-            if let Some(bash) = bash_path {
-                gui_command(&bash)
-                    .args(["--login", "-i"])
-                    .current_dir(&path)
+            // Use git-bash.exe (the GUI window launcher), NOT bash.exe
+            if let Some(gb) = find_git_bash() {
+                Command::new(&gb)
+                    .arg(&format!("--cd={}", dir))
                     .spawn()
                     .map_err(|e| format!("Failed to open Git Bash: {}", e))?;
             } else {
-                // Fallback: try "bash" from PATH
-                gui_command("bash")
-                    .args(["--login", "-i"])
-                    .current_dir(&path)
-                    .spawn()
-                    .map_err(|e| format!("Failed to open Git Bash: {}", e))?;
+                return Err("Git Bash not found. Install Git for Windows.".to_string());
             }
         }
         "wsl" => {
-            // Open WSL in the given path (convert Windows path to WSL path)
-            gui_command("wsl")
-                .args(["--cd", &path])
+            // Open WSL instance in the given directory
+            Command::new("cmd.exe")
+                .args(["/c", "start", "wsl.exe", "--cd", &dir])
                 .spawn()
                 .map_err(|e| format!("Failed to open WSL: {}", e))?;
         }
         "cursor" => {
-            gui_command("cursor")
-                .arg(&path)
-                .spawn()
-                .map_err(|e| format!("Failed to open Cursor: {}", e))?;
+            if let Some(p) = find_executable("cursor") {
+                Command::new(&p)
+                    .arg(&path)
+                    .spawn()
+                    .map_err(|e| format!("Failed to open Cursor: {}", e))?;
+            } else {
+                Command::new("cmd.exe")
+                    .args(["/c", "cursor", &path])
+                    .spawn()
+                    .map_err(|e| format!("Failed to open Cursor: {}", e))?;
+            }
         }
         "windsurf" => {
-            gui_command("windsurf")
-                .arg(&path)
-                .spawn()
-                .map_err(|e| format!("Failed to open Windsurf: {}", e))?;
+            if let Some(p) = find_executable("windsurf") {
+                Command::new(&p)
+                    .arg(&path)
+                    .spawn()
+                    .map_err(|e| format!("Failed to open Windsurf: {}", e))?;
+            } else {
+                Command::new("cmd.exe")
+                    .args(["/c", "windsurf", &path])
+                    .spawn()
+                    .map_err(|e| format!("Failed to open Windsurf: {}", e))?;
+            }
         }
         _ => {
             return Err(format!("Unknown target: {}", target));
         }
     }
-    Ok(())
+    Ok(()
+    )
 }
 
 // --- Native Context Menu (replaces HTML fallback) ---

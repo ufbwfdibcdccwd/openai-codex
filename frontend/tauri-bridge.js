@@ -788,11 +788,19 @@
         };
       }
       case "os-info":
-        return {
-          platform: "win32",
-          hasWsl: false,
-          isVsCodeRunningInsideWsl: false,
-        };
+        return invoke("check_wsl").then(function(r) {
+          return {
+            platform: "win32",
+            hasWsl: r && r.hasWsl ? true : false,
+            isVsCodeRunningInsideWsl: false,
+          };
+        }).catch(function() {
+          return {
+            platform: "win32",
+            hasWsl: false,
+            isVsCodeRunningInsideWsl: false,
+          };
+        });
 
       case "locale-info":
         return {

@@ -279,6 +279,7 @@ fn main() {
             commands::read_git_file_binary,
             commands::detect_open_targets,
             commands::gh_cli_status,
+            commands::check_wsl,
             commands::open_in_target,
             commands::show_native_context_menu,
         ])
