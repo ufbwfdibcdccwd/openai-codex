@@ -113,33 +113,9 @@ Equipa de 5 agentes especializados com orquestração centralizada. Cada agente 
 8. QA valida release → merge em main + tag
 ```
 
-## Estado Atual do Projeto
+## Estado do Projeto
 
-### ✅ Concluído
-- [x] Extração da UI do Codex original (app.asar)
-- [x] Ponte Tauri básica (tauri-bridge.js)
-- [x] Backend Rust (spawn codex.exe, WebSocket)
-- [x] Terminal integrado
-- [x] Detecção de open-in targets
-- [x] Git status/origins/push commands
-- [x] Contexto menu nativo
-- [x] Autenticação OAuth flow
-- [x] Ícones extraídos (Terminal, Git Bash, WSL)
-- [x] Detecção dinâmica de WSL
-- [x] Paths absolutos para VS Code/Git Bash
+> O estado vivo do projeto (tarefas, bugs, prioridades) está em [state.md](file:///C:/Projeto/.agents/state.md).
+> Decisões arquitetónicas estão em [decisions.md](file:///C:/Projeto/.agents/decisions.md).
+> Leitura obrigatória: [PROTOCOL.md](file:///C:/Projeto/.agents/PROTOCOL.md).
 
-### 🔧 Em Progresso
-- [ ] Titlebar custom dark (sem barra branca)
-- [ ] Terminal label "PowerShell" (em vez do path completo)
-- [ ] VS Code / Git Bash / WSL — testar se realmente abre
-
-### 📋 Backlog
-- [ ] Painel de alterações de ficheiros (lado direito)
-- [ ] Indicador git (+981 -0)
-- [ ] Branch "main ▾" no rodapé
-- [ ] "Acesso completo ✓" vs "Personalizado"
-- [ ] Botão "Commit ▾"
-- [ ] Threads de outros projetos
-- [ ] Build release (cargo tauri build)
-- [ ] Testes de performance
-- [ ] Auto-update mechanism
