@@ -342,7 +342,7 @@ jobs:
       issues: write
     steps:
       - name: Comment on issue
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           CODEX_OUTPUT: ${{ needs.select-final.outputs.codex_output }}
         with:
